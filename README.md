@@ -1,5 +1,5 @@
 # recommend-system
-this is a music recommendation system
+this is a recommendation system
 
 # TODO
 
