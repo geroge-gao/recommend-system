@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import math
 
-from reco_utils.common.constants import DEFAULT_ITEM_COL, DEFAULT_USER_COL
+from utils.constants import DEFAULT_ITEM_COL, DEFAULT_USER_COL
 
 try:
     from pyspark.sql.functions import col, broadcast

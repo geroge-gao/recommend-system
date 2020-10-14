@@ -1,0 +1,12 @@
+
+*.csv
+*.zip
+.ipynb_checkpoints/test-checkpoint.ipynb
+*.tsv
+*.npy
+*.vec
+*.yaml
+*.pkl
+*.pyc
+data/mind-large/train/__placeholder__
+*.dat
