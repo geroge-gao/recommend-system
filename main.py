@@ -7,7 +7,6 @@ from prepare_data import movielens
 import tensorflow as tf
 from utils.newsrec_utils import get_mind_data_set, prepare_hparams
 from utils.deeprec_utils import download_deeprec_resources
-from tempfile import TemporaryDirectory
 
 pd.set_option('display.max_columns', None)
 sys.path.append('../../')
@@ -30,10 +29,11 @@ local_path = './data/ml-{}'.format(size)
 
 epochs = 5
 seed = 40
-MIND_type = 'large'
-tmpdir = TemporaryDirectory()
-data_path = tmpdir.name
-data_path = './data/mind-{}'.format(MIND_type)
+MIND_type = 'demo'
+# tmpdir = TemporaryDirectory()
+# data_path = tmpdir.name
+data_path = os.path.join('./data', 'mind-{}'.format(MIND_type))
+print(data_path)
 
 # def get_mind_dataset(datapath):
 train_news_file = os.path.join(data_path, 'train', r'news.tsv')
@@ -53,11 +53,35 @@ if not os.path.exists(train_news_file):
 if not os.path.exists(valid_news_file):
     download_deeprec_resources(mind_url, os.path.join(data_path, 'valid'), mind_dev_dataset)
 if not os.path.exists(yaml_file):
-    download_deeprec_resources(r'https://recodatasets.blob.core.windows.net/newsrec/', \
+    download_deeprec_resources(r'https://recodatasets.blob.core.windows.net/newsrec/',\
                                os.path.join(data_path, 'utils'), mind_utils)
 
 # hparams = prepare_hparams(yaml_file, wordEmb_file=wordEmb_file, \
 #                           wordDict_file=wordDict_file, userDict_file=userDict_file, epochs=epochs)
 # print(hparams)
 
+print(train_news_file)
+data = pd.read_csv(train_news_file, sep='\t')
+print(data)
+
+# load the news and behaviors data of mind data set.
+new_headers = ['news_id',
+               'category',
+               'subcategory',
+               'title',
+               'abstract',
+               'url',
+               'title_entities',
+               'abstract_entities']
+data = pd.read_csv(train_news_file, sep='\t', names=new_headers)
+
+behaviors_header = ['impression_id',
+                    'user_id',
+                    'time',
+                    'history',
+                    'impressions']
+
+behaviors_data = pd.read_csv(train_behaviors_file, sep='\t', names=behaviors_header)
+
+# parse the click data
 

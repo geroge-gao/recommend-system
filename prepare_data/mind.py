@@ -8,7 +8,7 @@ import json
 import numpy as np
 from nltk.tokenize import RegexpTokenizer
 
-from reco_utils.dataset.download_utils import maybe_download, download_path, unzip_file
+from utils.download_utils import maybe_download, download_path, unzip_file
 
 
 URL_MIND_LARGE_TRAIN = (
