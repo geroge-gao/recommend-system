@@ -3,13 +3,15 @@
 
 import os
 import re
+import sys
 import shutil
 import warnings
 import pandas as pd
 from zipfile import ZipFile
-from reco_utils.dataset.download_utils import maybe_download, download_path
-from reco_utils.common.notebook_utils import is_databricks
-from reco_utils.common.constants import (
+sys.path.append('../')
+
+from utils.download_utils import maybe_download, download_path
+from utils.constants import (
     DEFAULT_USER_COL,
     DEFAULT_ITEM_COL,
     DEFAULT_RATING_COL,
