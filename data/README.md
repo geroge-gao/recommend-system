@@ -6,3 +6,6 @@ click [there](https://github.com/msnews/msnews.github.io/blob/master/assets/doc/
 
 
 
+## Music DataSet
+
+click [there](https://tianchi.aliyun.com/competition/entrance/231531/information) for more information about music data
