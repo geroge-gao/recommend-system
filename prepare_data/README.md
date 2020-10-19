@@ -1,3 +1,8 @@
+this module is to load the dataset
+
+## load mind movies dataset
+
+```python
 # -*- coding: utf-8 -*-
 
 import sys
@@ -5,7 +10,6 @@ import os
 import pandas as pd
 from prepare_data import movielens
 import tensorflow as tf
-from prepare_data import music_dataset
 from utils.newsrec_utils import get_mind_data_set, prepare_hparams
 from utils.deeprec_utils import download_deeprec_resources
 
@@ -26,8 +30,8 @@ data = movielens.load_pandas_df('1m',
                                 year_col='Year',
                                 local_cache_path=local_path
                                 )
-# print(data.head(5))
 
+# load mind dataset
 epochs = 5
 seed = 40
 MIND_type = 'demo'
@@ -77,7 +81,7 @@ behaviors_header = ['impression_id',
 
 behaviors_data = pd.read_csv(train_behaviors_file, sep='\t', names=behaviors_header)
 
-# get music data set
+# load ali music data set
 
 local_path = './data/aliMusic/'
 action_file = 'p2_mars_tianchi_user_actions.csv'
@@ -85,3 +89,7 @@ song_file = 'p2_mars_tianchi_songs.csv'
 action_path = os.path.join(local_path, action_file)
 song_path = os.path.join(local_path, song_file)
 action_df, song_df = music_dataset.get_pandas_df(action_file, song_path)
+```
+
+
+
