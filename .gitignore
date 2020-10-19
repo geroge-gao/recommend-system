@@ -10,3 +10,4 @@
 *.pyc
 data/mind-large/train/__placeholder__
 *.dat
+*.log

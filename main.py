@@ -5,6 +5,7 @@ import os
 import pandas as pd
 from prepare_data import movielens
 import tensorflow as tf
+from prepare_data import music_dataset
 from utils.newsrec_utils import get_mind_data_set, prepare_hparams
 from utils.deeprec_utils import download_deeprec_resources
 
@@ -18,13 +19,13 @@ sys.path.append('../../')
 size = '1m'
 local_path = './data/ml-{}'.format(size)
 
-# data = movielens.load_pandas_df('1m',
-#                                 ['UserId', 'ItemId', 'Rating', 'Timestamp'],
-#                                 title_col='Title',
-#                                 genres_col='Genres',
-#                                 year_col='Year',
-#                                 local_cache_path=local_path
-#                                 )
+data = movielens.load_pandas_df('1m',
+                                ['UserId', 'ItemId', 'Rating', 'Timestamp'],
+                                title_col='Title',
+                                genres_col='Genres',
+                                year_col='Year',
+                                local_cache_path=local_path
+                                )
 # print(data.head(5))
 
 epochs = 5
@@ -56,13 +57,6 @@ if not os.path.exists(yaml_file):
     download_deeprec_resources(r'https://recodatasets.blob.core.windows.net/newsrec/',\
                                os.path.join(data_path, 'utils'), mind_utils)
 
-# hparams = prepare_hparams(yaml_file, wordEmb_file=wordEmb_file, \
-#                           wordDict_file=wordDict_file, userDict_file=userDict_file, epochs=epochs)
-# print(hparams)
-
-print(train_news_file)
-data = pd.read_csv(train_news_file, sep='\t')
-print(data)
 
 # load the news and behaviors data of mind data set.
 new_headers = ['news_id',
@@ -83,5 +77,11 @@ behaviors_header = ['impression_id',
 
 behaviors_data = pd.read_csv(train_behaviors_file, sep='\t', names=behaviors_header)
 
-# parse the click data
+# get music data set
 
+local_path = './data/aliMusic/'
+action_file = 'p2_mars_tianchi_user_actions.csv'
+song_file = 'p2_mars_tianchi_songs.csv'
+action_path = os.path.join(local_path, action_file)
+song_path = os.path.join(local_path, song_file)
+action_df, song_df = music_dataset.get_pandas_df(action_file, song_path)
