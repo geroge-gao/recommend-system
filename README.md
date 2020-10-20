@@ -14,7 +14,3 @@ this is an offline recommendation system pipeline which is aimed to integrate ba
 
 we can load dataset for model which will be developed later.
 
-```python
-
-```
-
