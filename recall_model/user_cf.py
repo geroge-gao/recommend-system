@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import warnings
 from tqdm import tqdm
-from datetime import datetime
+import time
 import numpy as np
 import math
 from collections import defaultdict
-warnings.filters('ignore')
 
 
 class UserCF:
@@ -18,38 +16,41 @@ class UserCF:
         self.data = data
         self.rec_nums = rec_nums
         self.user2item = {}
+        self.item2user = {}
         self.user_sim = {}
 
     def get_top_items(self):
         hot_items = list(self.data['item_id'].value_counts().index)
-        return hot_items
+        return hot_items[0: self.rec_nums]
 
     def user_similarity(self):
         # calculate similarity of users
 
         print('start to calculate user similarity')
-        start_time = datetime.time()
-        user2item = dict(self.data.groupby(['user_id'])['item_id'].apply(lambda x: list(x)[::-1]))
-        item2user = dict(self.groupby(['item_id'])['user_id'].apply(lambda x: list(x)))
+        start_time = time.time()
+        self.user2item = dict(self.data.groupby(['user_id'])['item_id'].apply(lambda x: list(x)[::-1]))
+        self.item2user = dict(self.data.groupby(['item_id'])['user_id'].apply(lambda x: list(x)))
 
-        user_sim = {}
-        for i, users in tqdm(item2user.items()):
+
+        user_similarity = {}
+        c = {}
+        w = {}
+        for i, users in tqdm(self.item2user.items()):
             for u in users:
-                user_sim.setdefault(u, defaultdict(int))
+                c.setdefault(u, defaultdict(int))
                 for v in users:
                     if u == v:
                         continue
-                    user_sim[u][v] += 1 / math.log(1 + len(users))
+                    c[u][v] += 1 / math.log(1 + len(users))
 
-        for u, related_users in tqdm(user_sim.items()):
+        for u, related_users in tqdm(c.items()):
+            w.setdefault(u, defaultdict(int))
             for v, count in related_users.items():
-                user_sim[u][v] = count / math.sqrt(
-                    len(user2item[u]) * len(user2item[v]))
-        self.user_sim = user_sim
-        end_time = datetime.time()
-        print('finish calculating user similarity, it costs {} seconds'.format(end_time - start_time))
+                w[u][v] = count / math.sqrt(len(self.user2item[u]) * len(self.user2item[v]))
 
-        return user_sim
+        end_time = time.time()
+        print('finish calculating user similarity, it costs {} seconds'.format(end_time - start_time))
+        self.user_sim = w
 
     def recommend(self, user):
         # recommend item for specific user
@@ -64,8 +65,8 @@ class UserCF:
                 rank[similar_user_interacted_item] += sim_score
         result = list(dict(sorted(rank.items(), key=lambda x: x[1], reverse=True)[0:self.rec_nums]).keys())
         if len(result) < 50:
-            tmp = [a for a in hot_items  if a not in result]
-            result = result + tmp[:(50 - len(result))]
+            tmp = [a for a in hot_items if a not in result]
+            result = result + tmp[:(self.rec_nums - len(result))]
         return result
 
     def recommend_all(self, user_list):

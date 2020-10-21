@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import warnings
 from tqdm import tqdm
-from datetime import datetime
 import numpy as np
-warnings.filters('ignore')
+import time
 
 
-class UserCF:
+class ItemCF:
     def __init__(self, data, rec_nums):
         """
         recommend items that are similar to items you clicked on
@@ -26,18 +24,23 @@ class UserCF:
         :return:
         """
         data = self.data
-        train_data = data.groupby(['user_id', 'item_id'])['datetime'].count().reset_index()
+        train_data = data.groupby(['user_id', 'item_id'])['timestamp'].count().reset_index()
+        # print(train_data)
 
         print('begin to calculate the user2item_matrix')
-        start_time = datetime.time()
+        start_time = time.time()
         user2item = {}
         for i, row in tqdm(train_data.iterrows()):
-            if row[1] not in user2item:
-                user2item[int(row[1])] = {}
-            user2item[int(row[1])][int(row[2])] = row[3]
+            try:
+                if row[0] not in user2item:
+                    user2item[int(row[0])] = {}
+
+                user2item[int(row[0])][int(row[1])] = row[2]
+            except:
+                print(row)
         user2item = dict(sorted(user2item.items(), key=lambda x: x[0]))
         self.user2item_matrix = user2item
-        end_time = datetime.time()
+        end_time = time.time()
         print('user2item_matrix is created, it costs {} seconds'.format(end_time - start_time))
 
         # calculate item_similarity matrix

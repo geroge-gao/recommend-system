@@ -16,7 +16,7 @@ import numpy as np
 import yaml
 import zipfile
 from utils.download_utils import maybe_download
-from reco_utils.recommender.deeprec.deeprec_utils import (
+from utils.deeprec_utils import (
     flat_config,
     load_yaml,
     load_dict,
