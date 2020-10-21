@@ -24,10 +24,10 @@ size = '1m'
 local_path = './data/ml-{}'.format(size)
 
 data = movielens.load_pandas_df('1m',
-                                ['UserId', 'ItemId', 'Rating', 'Timestamp'],
-                                title_col='Title',
-                                genres_col='Genres',
-                                year_col='Year',
+                                ['user_id', 'item_id', 'rating', 'timestamp'],
+                                title_col='title',
+                                genres_col='genres',
+                                year_col='year',
                                 local_cache_path=local_path
                                 )
 
