@@ -64,7 +64,7 @@ class UserCF:
                 rank.setdefault(similar_user_interacted_item, 0)
                 rank[similar_user_interacted_item] += sim_score
         result = list(dict(sorted(rank.items(), key=lambda x: x[1], reverse=True)[0:self.rec_nums]).keys())
-        if len(result) < 50:
+        if len(result) < self.rec_nums:
             tmp = [a for a in hot_items if a not in result]
             result = result + tmp[:(self.rec_nums - len(result))]
         return result
