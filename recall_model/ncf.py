@@ -36,7 +36,7 @@ class NCF:
                  verbose=1,
                  seed=None):
         """
-        construct function
+        init parameters of the model
         :param n_users: numbers of user in the dataset
         :param n_items:
         :param model_type:
@@ -56,19 +56,20 @@ class NCF:
         self.n_epochs = n_epochs
         self.batch_size = batch_size
         self.learning_rate = learning_rate
+        self.
         self.seed = seed
 
-    def MLP(self, n_user, n_items, user_embedding_dim, item_embedding_dim, layers, mlp_reg=0):
+    def MLP(self, layers_unit=[20,10], mlp_reg=0):
         user_input = Input(shape=(1,), dtype='int32', name='user_input')
         item_input = Input(shape=(1,), dtype='int32', name='item_input')
 
         # define embedding function
-        user_embedding = Embedding(input_dim=self.n_users, outpuit_dim=user_embedding_dim,
-                                   name='user_embedding', embeddings_initializer=initializers.normal((1,user_embedding_dim),
+        user_embedding = Embedding(input_dim=self.n_users, outpuit_dim=layers_unit[1],
+                                   name='user_embedding', embeddings_initializer=initializers.normal((1,layers_unit[1]),
                                    scale=0.01), W_regularizer=l2(mlp_reg), input_length=1)(user_input)
 
-        item_embedding = Embedding(input_dim=self.n_items, output_dim=item_embedding_dim,
-                                   name='item embedding', embeddings_initializer=initializers.normal((1, item_embedding_dim), scale=0.01),
+        item_embedding = Embedding(input_dim=self.n_items, output_dim=layers_unit[1],
+                                   name='item embedding', embeddings_initializer=initializers.normal((1, layers_unit[1]), scale=0.01),
                                    embeddings_regularizer=l2(mlp_reg), input_length=1)(item_input)
 
         # fatten an embedding vector
@@ -78,10 +79,11 @@ class NCF:
         # concat embedding vector of user and item
         vector = merge([user_latent, item_latent], mode='concat')
 
-        #
+        # mlp layers
+        for i in range(len(layers_unit)):
+            vector = Dense(layers_unit[i], activation='relu')(vector)
 
 
-        return model
     def GMF(self):
         self.n_factors = 1
         return 1
@@ -90,8 +92,6 @@ class NCF:
 
         return 1
 
-    def create_model(self):
-        # input_layer = k.layers.InputLayer()
 
     def fit(self, data):
         self.data = data
