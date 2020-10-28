@@ -9,33 +9,41 @@ from prepare_data import music_dataset
 from utils.newsrec_utils import get_mind_data_set, prepare_hparams
 from utils.deeprec_utils import download_deeprec_resources
 
-pd.set_option('display.max_columns', None)
-sys.path.append('../../')
 
 
-# load the movies data
-# size: 100k, 1m ,10m, 20m
+from recall_model.ncf import NCF
 
-size = '1m'
-local_path = './data/ml-{}'.format(size)
+ncf = NCF(10, 10)
+mlp = ncf.MLP()
 
-data = movielens.load_pandas_df('1m',
-                                ['user_id', 'item_id', 'rating', 'timestamp'],
-                                title_col='title',
-                                genres_col='genres',
-                                year_col='year',
-                                local_cache_path=local_path
-                                )
 
-from recall_model.user_cf import UserCF
-
-data = data.iloc[0:10000, :]
-
-print(data.head())
-
-user_cf = UserCF(data, rec_nums=50)
-user_cf.user_similarity()
-print(user_cf.recommend(1))
+# pd.set_option('display.max_columns', None)
+# sys.path.append('../../')
+#
+#
+# # load the movies data
+# # size: 100k, 1m ,10m, 20m
+#
+# size = '1m'
+# local_path = './data/ml-{}'.format(size)
+#
+# data = movielens.load_pandas_df('1m',
+#                                 ['user_id', 'item_id', 'rating', 'timestamp'],
+#                                 title_col='title',
+#                                 genres_col='genres',
+#                                 year_col='year',
+#                                 local_cache_path=local_path
+#                                 )
+#
+# from recall_model.user_cf import UserCF
+#
+# data = data.iloc[0:10000, :]
+#
+# print(data.head())
+#
+# user_cf = UserCF(data, rec_nums=50)
+# user_cf.user_similarity()
+# print(user_cf.recommend(1))
 # print(user_cf.get_top_items())
 # print(user_cf.user_sim)
 
