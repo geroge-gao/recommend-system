@@ -12,3 +12,6 @@ data/mind-large/train/__placeholder__
 *.dat
 *.log
 demo.ipynb
+.ipynb_checkpoints/demo-checkpoint.ipynb
+*.ipynb
+*.ipynb
