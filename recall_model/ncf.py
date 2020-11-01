@@ -2,6 +2,10 @@
 
 import tqdm
 import time
+import os
+import numpy as np
+import pandas as pd
+from sklearn.utils import shuffle
 import tensorflow as tf
 from tensorflow.keras.layers import (Embedding,
                                      Input,
@@ -14,6 +18,8 @@ from tensorflow.keras.layers import (Embedding,
 from tensorflow.keras.optimizers import Adagrad, Adam, SGD, RMSprop
 from tensorflow.keras import initializers, Model
 from tensorflow.keras.regularizers import l2
+from tensorflow.keras.models import load_model
+
 
 
 class NCF:
@@ -28,7 +34,11 @@ class NCF:
                  user_embedding_dim=10,
                  item_embedding_dim=10,
                  n_factors=8,
-                 layer_sizes=[16, 8, 4]):
+                 learning_rate=10e3,
+                 layers=[16, 8, 4],
+                 epochs=100,
+                 batch_size=32,
+                 verbose=0):
         """
         init parameters of the model
         :param n_users: numbers of user in the dataset
@@ -41,9 +51,13 @@ class NCF:
         self.n_items = n_items
         self.model_type = model_type
         self.n_factors = n_factors
-        self.layer_size = layer_sizes
+        self.layers = layers
         self.user_embedding_dim = user_embedding_dim
         self.item_embedding_dim = item_embedding_dim
+        self.learning_rate = learning_rate
+        self.epochs = epochs
+        self.verbose = verbose
+        self.batch_size = batch_size
 
     def get_model(self):
 
@@ -60,15 +74,13 @@ class NCF:
             print(repr(e))
         return model
 
-
-
-    def MLP(self, layers_unit=[20, 10], mlp_reg=0):
+    def MLP(self, layers=[20, 10], mlp_reg=0):
 
         # define input layer
         user_input = Input(shape=(1,), dtype='int32', name='user_input')
         item_input = Input(shape=(1,), dtype='int32', name='item_input')
 
-        print(layers_unit)
+        print(layers)
         # define embedding function
         user_embedding = Embedding(input_dim=self.n_users,
                                    output_dim=self.user_embedding_dim,
@@ -92,8 +104,8 @@ class NCF:
         vector = Concatenate(axis=-1)([user_latent, item_latent])
 
         # mlp layers
-        for i in range(len(layers_unit)):
-            vector = Dense(layers_unit[i], activation='relu', name='mlp_layer-%d' % i)(vector)
+        for i in range(len(layers)):
+            vector = Dense(layers[i], activation='relu', name='mlp_layer-%d' % i)(vector)
 
         # Final prediction layer
         prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name='prediction')(vector)
@@ -103,7 +115,7 @@ class NCF:
 
         return model
 
-    def GMF(self, layers_unit=[20, 10], mlp_reg=0):
+    def GMF(self, layers=[20, 10], mlp_reg=0):
 
         # Define input layer
         user_input = Input(shape=(1,), dtype='int32', name='user_input')
@@ -111,14 +123,14 @@ class NCF:
 
         # Define embedding layer
         user_embedding = Embedding(input_dim=self.n_users,
-                                   output_dim=layers_unit[1],
+                                   output_dim=layers[1],
                                    embeddings_initializer='uniform',
                                    embeddings_regularizer=l2(mlp_reg),
                                    input_length=1,
                                    name='user_embedding')(user_input)
 
         item_embedding = Embedding(input_dim=self.n_items,
-                                   output_dim=layers_unit[1],
+                                   output_dim=layers[1],
                                    embeddings_initializer='uniform',
                                    embeddings_regularizer=l2(mlp_reg),
                                    input_length=1,
@@ -139,23 +151,23 @@ class NCF:
                       outputs=prediction)
         return model
 
-    def NeuMF(self, layers_unit=[20, 10], reg_unit=0, mlp_reg=0):
+    def NeuMF(self, layers=[20, 10], reg_unit=0, mlp_reg=0):
 
         # define input layer
         user_input = Input(shape=(1,), dtype='int32', name='user_input')
         item_input = Input(shape=(1,), dtype='int32', name='item_input')
 
-        print(layers_unit)
+        print(layers)
         # define mlp embedding layer
         mlp_user_embedding = Embedding(input_dim=self.n_users,
-                                       output_dim=layers_unit[0],
+                                       output_dim=layers[0],
                                        embeddings_initializer='uniform',
                                        embeddings_regularizer=l2(mlp_reg),
                                        input_length=1,
                                        name='mlp_user_embedding')(user_input)
 
         mlp_item_embedding = Embedding(input_dim=self.n_items,
-                                       output_dim=layers_unit[0],
+                                       output_dim=layers[0],
                                        embeddings_initializer='uniform',
                                        embeddings_regularizer=l2(mlp_reg),
                                        input_length=1,
@@ -163,14 +175,14 @@ class NCF:
 
         # define gmf embedding layer
         gmf_user_embedding = Embedding(input_dim=self.n_users,
-                                       output_dim=layers_unit[1],
+                                       output_dim=layers[1],
                                        embeddings_initializer='uniform',
                                        embeddings_regularizer=l2(mlp_reg),
                                        input_length=1,
                                        name='user_embedding')(user_input)
 
         gmf_item_embedding = Embedding(input_dim=self.n_items,
-                                       output_dim=layers_unit[1],
+                                       output_dim=layers[1],
                                        embeddings_initializer='uniform',
                                        embeddings_regularizer=l2(mlp_reg),
                                        input_length=1,
@@ -184,8 +196,8 @@ class NCF:
         mlp_vector = Concatenate(axis=-1, name='mlp_vector')([mlp_user_latent, mlp_item_latent])
 
         # mlp layers
-        for i in range(len(layers_unit)):
-            mlp_vector = Dense(layers_unit[i], activation='relu', name='mlp_layer-%d' % i)(mlp_vector)
+        for i in range(len(layers)):
+            mlp_vector = Dense(layers[i], activation='relu', name='mlp_layer-%d' % i)(mlp_vector)
 
         # fatten gmf embedding vector
         gmf_user_latent = Flatten(name='gmf_user_flatten')(gmf_user_embedding)
@@ -195,7 +207,7 @@ class NCF:
         gmf_vector = Multiply(name='gmf_vector')([gmf_user_latent, gmf_item_latent])
 
         # concat gmf  and mlp parts
-        predict_vector = Concatenate(axis=-1)([mlp_vector, gmf_vector])
+        predict_vector = Concatenate(axis=1)([mlp_vector, gmf_vector])
 
         # final prediction layer
         prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name='neuMF_prediction')(predict_vector)
@@ -205,13 +217,128 @@ class NCF:
 
         return model
 
-    def fit(self, model, data):
-        # compile the model
+    def get_train_instance(self, data, num_negatives):
+        """
+        construct positive and negative samples for training set
+        :param data: train data of which the data format is  [user_id, item_id,...]
+        :param num_negatives: number of negative instances to pair with a positive instance
+        :return: train
+        train data for model
+        """
+
+        # get the positive data
+        positive_data = data.iloc[:, 0:2]
+        positive_data['labels'] = 1
+
+        user_input, item_input, labels = [], [], []
+        user2item_list = positive_data.groupby('user_id')['item_id'].agg(lambda x: list(x)).reset_index()
+        mat = dict(zip(user2item_list['user_id'].values, user2item_list['item_id'].values))
+        for u in mat:
+            length = len(mat[u])
+            for i in range(length):
+                for n in range(num_negatives):
+                    j = np.random.randint(self.n_items)
+                    while j in mat[u]:
+                        j = np.random.randint(self.n_items)
+                    user_input.append(u)
+                    item_input.append(j)
+                    labels.append(0)
+        # get negative data
+        negative_data = pd.DataFrame({'user_id': user_input, 'item_id': item_input, 'labels': labels})
+
+        # concat positive and negative data
+        train = pd.concat([positive_data, negative_data]).reset_index(drop=True)
+        train = shuffle(train)
+
+        return train
+
+    def train(self, model, data, learner='sgd', loss='binary_crossentropy', split_ratio=0.2):
+        # compile and train the model
         print('fit the model')
-        self.model_type = 1
+
+        user_input = list(data['user_id'].values)
+        item_input = list(data['item_id'].values)
+        labels = list(data['labels'].values)
+
+        if learner.lower() == 'adagrad':
+            model.compile(optimizer=Adagrad(learning_rate=self.learning_rate), loss=loss)
+        elif learner.lower() == 'adam':
+            model.compile(optimizer=Adam(learning_rate=self.learning_rate), loss=loss)
+        elif learner.lower() == 'rmsprop':
+            model.compile(optimizer=RMSprop(self.learning_rate), loss=loss)
+        else:
+            model.compile(optimizer=SGD(self.learning_rate), loss=loss)
+
+        for epoch in range(self.epochs):
+            start_time = time.time()
+            model.fit(np.array([user_input, item_input]),
+                      np.array(labels),
+                      verbose=self.verbose,
+                      epochs=1,
+                      batch_size=self.batch_size,
+                      validation_split=split_ratio,
+                      shuffle=True)
+
+            end_time = time.time()
+            print(end_time - start_time)
+            
+        return model
 
     def load_pretrain_model(self, model, gmf_model_path, mlp_model_path):
-        self.n_users = 1
+        # check whether the model file exists
+        if os.path.exists(gmf_model_path) and os.path.exists(mlp_model_path):
+            print('the model path is not correct, please check whether the model files exist')
+            return model
+
+        # load model weights
+        gmf_model = load_model(gmf_model_path)
+        mlp_model = load_model(mlp_model_path)
+
+        # MF embeddings
+        gmf_user_embeddings = gmf_model.get_layer('user_embedding').get_weights()
+        gmf_item_embeddings = gmf_model.get_layer('item_embedding').get_weights()
+        model.get_layer('mf_embedding_user').set_weights(gmf_user_embeddings)
+        model.get_layer('mf_embedding_item').set_weights(gmf_item_embeddings)
+
+        # MLP embeddings
+        mlp_user_embeddings = mlp_model.get_layer('user_embedding').get_weights()
+        mlp_item_embeddings = mlp_model.get_layer('item_embedding').get_weights()
+        model.get_layer('mlp_embedding_user').set_weights(mlp_user_embeddings)
+        model.get_layer('mlp_embedding_item').set_weights(mlp_item_embeddings)
+
+        # MLP layers
+        for i in range(1, self.layers):
+            mlp_layer_weights = mlp_model.get_layer('mlp_layer-%d' % i).get_weights()
+            model.get_layer('mlp_layer-%d' % i).set_weights(mlp_layer_weights)
+
+        # Prediction weights
+        gmf_prediction = gmf_model.get_layer('prediction').get_weights()
+        mlp_prediction = mlp_model.get_layer('prediction').get_weights()
+        new_weights = np.concatenate((gmf_prediction[0], mlp_prediction[0]), axis=0)
+        new_b = gmf_prediction[1] + mlp_prediction[1]
+        print('new_b.shape', new_b.shape)
+        model.get_layer('prediction').set_weights([0.5 * new_weights, 0.5 * new_b])
+        return model
+
+    def save_model(self, directory):
+        """
+        save the model
+        :param directory:
+        :param dir: the directory where to put the model
+        :return:
+        """
+
+        # create the dir if not exist
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+
+        # remove the model file if exists
+        model_name = self.model_type + '.h5'
+        model_path = os.join(directory, model_name)
+        if os.path.exists(model_path):
+            os.remove(model_path)
+
+        self.model.save(model_path)
 
     def recommend(self, model, path):
         print('recommend function')
