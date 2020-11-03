@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import tqdm
 import time
 import os
 import numpy as np
 import pandas as pd
 from sklearn.utils import shuffle
-import tensorflow as tf
 from tensorflow.keras.layers import (Embedding,
                                      Input,
                                      Dense,
@@ -37,6 +35,8 @@ class NCF:
                  learning_rate=10e3,
                  layers=[16, 8, 4],
                  epochs=100,
+                 optimizer='adam',
+                 loss='binary_crossentropy',
                  batch_size=32,
                  verbose=0):
         """
@@ -58,6 +58,10 @@ class NCF:
         self.epochs = epochs
         self.verbose = verbose
         self.batch_size = batch_size
+        self.optimizer = optimizer
+        self.loss = loss
+
+        self.model = self.get_model()
 
     def get_model(self):
 
@@ -222,8 +226,7 @@ class NCF:
         construct positive and negative samples for training set
         :param data: train data of which the data format is  [user_id, item_id,...]
         :param num_negatives: number of negative instances to pair with a positive instance
-        :return: train
-        train data for model
+        :return:
         """
 
         # get the positive data
@@ -252,73 +255,69 @@ class NCF:
 
         return train
 
-    def train(self, model, data, learner='sgd', loss='binary_crossentropy', split_ratio=0.2):
+    def train(self, data, labels, split_ratio=0.2):
         # compile and train the model
         print('fit the model')
 
-        user_input = list(data['user_id'].values)
-        item_input = list(data['item_id'].values)
-        labels = list(data['labels'].values)
+        # user_input = list(data['user_id'].values)
+        # item_input = list(data['item_id'].values)
+        # labels = list(data['labels'].values)
 
-        if learner.lower() == 'adagrad':
-            model.compile(optimizer=Adagrad(learning_rate=self.learning_rate), loss=loss)
-        elif learner.lower() == 'adam':
-            model.compile(optimizer=Adam(learning_rate=self.learning_rate), loss=loss)
-        elif learner.lower() == 'rmsprop':
-            model.compile(optimizer=RMSprop(self.learning_rate), loss=loss)
+        if self.optimizer.lower() == 'adagrad':
+            self.model.compile(optimizer=Adagrad(learning_rate=self.learning_rate), loss=self.loss)
+        elif self.optimizer.lower() == 'adam':
+            self.model.compile(optimizer=Adam(learning_rate=self.learning_rate), loss=self.loss)
+        elif self.optimizer.lower() == 'rmsprop':
+            self.model.compile(optimizer=RMSprop(self.learning_rate), loss=self.loss)
         else:
-            model.compile(optimizer=SGD(self.learning_rate), loss=loss)
+            self.model.compile(optimizer=SGD(self.learning_rate), loss=self.loss)
 
         for epoch in range(self.epochs):
             start_time = time.time()
-            model.fit(np.array([user_input, item_input]),
-                      np.array(labels),
-                      verbose=self.verbose,
-                      epochs=1,
-                      batch_size=self.batch_size,
-                      validation_split=split_ratio,
-                      shuffle=True)
+            self.model.fit(data,
+                           labels,
+                           verbose=self.verbose,
+                           epochs=1,
+                           batch_size=self.batch_size,
+                           validation_split=split_ratio,
+                           shuffle=True)
 
             end_time = time.time()
             print(end_time - start_time)
-            
-        return model
 
-    def load_pretrain_model(self, model, gmf_model_path, mlp_model_path):
+    def load_pretrain_model(self, gmf_model_path, mlp_model_path):
         # check whether the model file exists
         if os.path.exists(gmf_model_path) and os.path.exists(mlp_model_path):
             print('the model path is not correct, please check whether the model files exist')
-            return model
+        else:
+            # load model weights
+            gmf_model = load_model(gmf_model_path)
+            mlp_model = load_model(mlp_model_path)
 
-        # load model weights
-        gmf_model = load_model(gmf_model_path)
-        mlp_model = load_model(mlp_model_path)
+            # MF embeddings
+            gmf_user_embeddings = gmf_model.get_layer('user_embedding').get_weights()
+            gmf_item_embeddings = gmf_model.get_layer('item_embedding').get_weights()
+            self.model.get_layer('mf_embedding_user').set_weights(gmf_user_embeddings)
+            self.model.get_layer('mf_embedding_item').set_weights(gmf_item_embeddings)
 
-        # MF embeddings
-        gmf_user_embeddings = gmf_model.get_layer('user_embedding').get_weights()
-        gmf_item_embeddings = gmf_model.get_layer('item_embedding').get_weights()
-        model.get_layer('mf_embedding_user').set_weights(gmf_user_embeddings)
-        model.get_layer('mf_embedding_item').set_weights(gmf_item_embeddings)
+            # MLP embeddings
+            mlp_user_embeddings = mlp_model.get_layer('user_embedding').get_weights()
+            mlp_item_embeddings = mlp_model.get_layer('item_embedding').get_weights()
+            self.model.get_layer('mlp_embedding_user').set_weights(mlp_user_embeddings)
+            self.model.get_layer('mlp_embedding_item').set_weights(mlp_item_embeddings)
 
-        # MLP embeddings
-        mlp_user_embeddings = mlp_model.get_layer('user_embedding').get_weights()
-        mlp_item_embeddings = mlp_model.get_layer('item_embedding').get_weights()
-        model.get_layer('mlp_embedding_user').set_weights(mlp_user_embeddings)
-        model.get_layer('mlp_embedding_item').set_weights(mlp_item_embeddings)
+            # MLP layers
+            for i in range(1, self.layers):
+                mlp_layer_weights = mlp_model.get_layer('mlp_layer-%d' % i).get_weights()
+                self.get_layer('mlp_layer-%d' % i).set_weights(mlp_layer_weights)
 
-        # MLP layers
-        for i in range(1, self.layers):
-            mlp_layer_weights = mlp_model.get_layer('mlp_layer-%d' % i).get_weights()
-            model.get_layer('mlp_layer-%d' % i).set_weights(mlp_layer_weights)
-
-        # Prediction weights
-        gmf_prediction = gmf_model.get_layer('prediction').get_weights()
-        mlp_prediction = mlp_model.get_layer('prediction').get_weights()
-        new_weights = np.concatenate((gmf_prediction[0], mlp_prediction[0]), axis=0)
-        new_b = gmf_prediction[1] + mlp_prediction[1]
-        print('new_b.shape', new_b.shape)
-        model.get_layer('prediction').set_weights([0.5 * new_weights, 0.5 * new_b])
-        return model
+            # Prediction weights
+            gmf_prediction = gmf_model.get_layer('prediction').get_weights()
+            mlp_prediction = mlp_model.get_layer('prediction').get_weights()
+            new_weights = np.concatenate((gmf_prediction[0], mlp_prediction[0]), axis=0)
+            new_b = gmf_prediction[1] + mlp_prediction[1]
+            print('new_b.shape', new_b.shape)
+            self.model.get_layer('prediction').set_weights([0.5 * new_weights, 0.5 * new_b])
 
     def save_model(self, directory):
         """
@@ -340,9 +339,27 @@ class NCF:
 
         self.model.save(model_path)
 
-    def recommend(self, model, path):
+    def recommend(self, users, items, top_k):
         print('recommend function')
-        self.n_users = 1
+
+        result = {}
+        # for u in users
+        for u in users:
+            user = np.full(self.n_items, u, dtype='int32')
+            prediction = self.model.predict([np.array(user), np.array(items)])
+            # get top k item
+            item_scores = dict(zip(items, prediction))
+            top_items = list(sorted(item_scores.items(), key=lambda x: x[1], reverse=True))[:top_k]
+            result[u] = top_items
+
+        return result
+
+
+
+
+            
+
+
 
 
 
