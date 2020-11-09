@@ -69,7 +69,7 @@ class UserCF:
             result = result + tmp[:(self.rec_nums - len(result))]
         return result
 
-    def recommend_all(self, user_list):
+    def predict(self, user_list):
         # recommend item list for all users
         result = {}
         for user in user_list:

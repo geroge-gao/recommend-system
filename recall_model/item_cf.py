@@ -92,14 +92,18 @@ class ItemCF:
         rank = list(dict(sorted(rank.items(), key=lambda x: x[1], reverse=True)[0:self.rec_nums]))
         # rank = dict(sorted(rank.items(), key=lambda x: x[1], reverse=True)[0:rec_nums])
 
-        if len(rank) < self.rec_nums:
-            tmp = [i for i in self.topN_item if i not in rank]
-            rank += tmp[0:50-len(rank)]
+        # if len(rank) < self.rec_nums:
+        #     tmp = [i for i in self.topN_item if i not in rank]
+        #     rank += tmp[0:self.rec_nums-len(rank)]
+
         return rank
 
     def recommend_all(self, user_list):
         ranks = []
+        user_list = []
+        item_list = []
         for user in tqdm(user_list):
             ranks.append(self.recommend_single(user))
+
         return ranks
 
