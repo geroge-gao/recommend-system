@@ -3,10 +3,11 @@
 from tqdm import tqdm
 import numpy as np
 import time
+import pandas as pd
 
 
 class ItemCF:
-    def __init__(self, data, rec_nums):
+    def __init__(self, data, rec_nums=100):
         """
         recommend items that are similar to items you clicked on
         """
@@ -23,14 +24,14 @@ class ItemCF:
         calculate the similarity of each item
         :return:
         """
-        data = self.data
-        train_data = data.groupby(['user_id', 'item_id'])['timestamp'].count().reset_index()
+        # data = self.data
+        # train_data = data.groupby(['user_id', 'item_id'])['timestamp'].count().reset_index()
         # print(train_data)
 
         print('begin to calculate the user2item_matrix')
         start_time = time.time()
         user2item = {}
-        for i, row in tqdm(train_data.iterrows()):
+        for i, row in tqdm(self.data.iterrows()):
             try:
                 if row[0] not in user2item:
                     user2item[int(row[0])] = {}
@@ -92,18 +93,23 @@ class ItemCF:
         rank = list(dict(sorted(rank.items(), key=lambda x: x[1], reverse=True)[0:self.rec_nums]))
         # rank = dict(sorted(rank.items(), key=lambda x: x[1], reverse=True)[0:rec_nums])
 
-        # if len(rank) < self.rec_nums:
-        #     tmp = [i for i in self.topN_item if i not in rank]
-        #     rank += tmp[0:self.rec_nums-len(rank)]
+        if len(rank) < self.rec_nums:
+            tmp = [i for i in self.topN_item if i not in rank]
+            rank += tmp[0:self.rec_nums-len(rank)]
 
         return rank
 
-    def recommend_all(self, user_list):
-        ranks = []
+    def predict(self, users):
         user_list = []
         item_list = []
-        for user in tqdm(user_list):
-            ranks.append(self.recommend_single(user))
+        for user in tqdm(users):
+            recall = self.recommend_single(user)
+            user_list += list(np.full(self.rec_nums, user, dtype='int'))
+            item_list += recall
 
-        return ranks
+        result = pd.DataFrame({'user_id': user_list, 'item_id': item_list})
+        result['index'] = result.index
+        result['rank'] = result.groupby('user_id')['index'].rank(method='first', ascending=False)
+
+        return result
 

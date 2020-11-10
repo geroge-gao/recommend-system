@@ -20,7 +20,6 @@ from tensorflow.keras.models import load_model
 from tqdm import tqdm
 
 
-
 class NCF:
     """
     neural collaborative filtering: use mlp to replace
@@ -41,6 +40,7 @@ class NCF:
                  epochs=1,
                  optimizer='adam',
                  loss='binary_crossentropy',
+                 load_pretrain=False,
                  batch_size=32,
                  verbose=1):
         """
@@ -66,6 +66,7 @@ class NCF:
         self.batch_size = batch_size
         self.optimizer = optimizer
         self.loss = loss
+        self.load_pretrain = load_pretrain
         self.reg_layers = reg_layers
 
         self.model = self.get_model()
@@ -194,7 +195,7 @@ class NCF:
                                        name='user_embedding')(user_input)
 
         gmf_item_embedding = Embedding(input_dim=self.n_items,
-                                       output_dim=self.item_gmf_embedding_dim[1],
+                                       output_dim=self.item_gmf_embedding_dim,
                                        embeddings_initializer='uniform',
                                        embeddings_regularizer=l2(self.reg_layers[0]),
                                        input_length=1,
@@ -222,7 +223,7 @@ class NCF:
         gmf_vector = Multiply(name='gmf_vector')([gmf_user_latent, gmf_item_latent])
 
         # concat gmf  and mlp parts
-        predict_vector = Concatenate(axis=1)([mlp_vector, gmf_vector])
+        predict_vector = Concatenate(axis=-1)([mlp_vector, gmf_vector])
 
         # final prediction layer
         prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name='neuMF_prediction')(predict_vector)
@@ -232,7 +233,7 @@ class NCF:
 
         return model
 
-    def train(self, inputs, labels, split_ratio=0.2):
+    def train(self, inputs, labels, mlp_dir=None, gmf_dir=None, split_ratio=0.1):
         # compile and train the model
         print('fit the model')
 
@@ -244,6 +245,12 @@ class NCF:
             self.model.compile(optimizer=RMSprop(self.learning_rate), loss=self.loss)
         else:
             self.model.compile(optimizer=SGD(self.learning_rate), loss=self.loss)
+
+        if self.load_pretrain:
+            if mlp_dir is not None and gmf_dir is not None:
+                self.load_pretrain_model(mlp_dir, gmf_dir)
+            else:
+                print('the pretrain model path is not correct, please check the path')
 
         start_time = time.time()
         self.model.fit(inputs,
@@ -257,7 +264,7 @@ class NCF:
         end_time = time.time()
         print(end_time - start_time)
 
-    def load_pretrain_model(self, gmf_model_path, mlp_model_path):
+    def load_pretrain_model(self, gmf_model_path=None, mlp_model_path=None):
         # check whether the model file exists
         if os.path.exists(gmf_model_path) and os.path.exists(mlp_model_path):
             print('the model path is not correct, please check whether the model files exist')
@@ -310,7 +317,7 @@ class NCF:
             os.remove(model_path)
 
         self.model.save(model_path)
-        print('save model')
+        print('save success')
 
     def get_train_instance(self, data, num_negatives):
         """
@@ -372,8 +379,8 @@ class NCF:
 
         return result
 
-"""
 
+"""
     所有数据其实都是正样本
     构建训练集正负样本，从交互数据抽样，将未进行交互行为的样本作为负样本
     测试集：挑选最后一次行为作为正样本，然后未交互数据作为负样本。
