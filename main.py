@@ -11,10 +11,10 @@ from utils.deeprec_utils import download_deeprec_resources
 
 
 
-from recall_model.ncf import NCF
+# from recall_model.ncf import NCF
 
-ncf = NCF(10, 10)
-mlp = ncf.MLP()
+# ncf = NCF(10, 10)
+# mlp = ncf.MLP()
 
 
 # pd.set_option('display.max_columns', None)
@@ -107,3 +107,9 @@ mlp = ncf.MLP()
 # song_path = os.path.join(local_path, song_file)
 # action_df, song_df = music_dataset.get_pandas_df(action_file, song_path)
 
+
+# from utils.dataset_utils import maybe_download, load_adult_data
+#
+# dirs = './data/adult'
+# train, test = load_adult_data(workdir=dirs)
+# print(train)

@@ -1,5 +1,3 @@
-import numpy as np
-import os
 from recall_model import item_cf
 from prepare_data import movielens
 from evaluate.evaluation import ndcg, hit_ratio
