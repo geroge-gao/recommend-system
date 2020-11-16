@@ -5,6 +5,7 @@ import os
 import numpy as np
 from utils.download_utils import maybe_download
 from sklearn.utils import shuffle
+from sklearn.preprocessing import PolynomialFeatures, LabelEncoder
 
 
 def split_train_test_data(data):
@@ -26,7 +27,6 @@ def load_adult_data(workdir):
     names_file = 'adult.names'
     train_path = maybe_download(train_url, train_file, workdir)
     test_path = maybe_download(test_url, test_file, workdir)
-    # names_path = maybe_download(names_url, names_file, workdir)
 
     # read local file
     columns = [
@@ -40,6 +40,22 @@ def load_adult_data(workdir):
     test = pd.read_csv(test_path, sep=',', names=columns)
     # names = pd.read_csv(names_path, sep=',')
     return train, test
+
+
+def category_cross_feature(data, degree, interaction_only=True, include_bias=False):
+    # create cross feature for DNN
+    cross_features = list(data.columns.values)
+
+    for col in cross_features:
+        le = LabelEncoder()
+        data[col] = le.fit_transform(data[col])
+
+    poly = PolynomialFeatures(degree=degree, interaction_only=interaction_only, include_bias=include_bias)
+    cross_feature = poly.fit_transform(data)
+    return cross_feature
+
+
+
 
 
 
