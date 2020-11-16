@@ -42,16 +42,10 @@ def load_adult_data(workdir):
     return train, test
 
 
-def category_cross_feature(data, degree, interaction_only=True, include_bias=False):
+def category_cross_feature(data, degree=2, interaction_only=True, include_bias=False):
     # create cross feature for DNN
-    cross_features = list(data.columns.values)
-
-    for col in cross_features:
-        le = LabelEncoder()
-        data[col] = le.fit_transform(data[col])
-
     poly = PolynomialFeatures(degree=degree, interaction_only=interaction_only, include_bias=include_bias)
-    cross_feature = poly.fit_transform(data)
+    cross_feature = poly.fit_transform(data).astype(int)
     return cross_feature
 
 

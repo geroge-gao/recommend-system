@@ -1,34 +1,31 @@
 import os
 import numpy as np
-import tensorflow as tf
+from matplotlib import pyplot as plt
 from tensorflow.keras import Model
-from sklearn.preprocessing import PolynomialFeatures
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.layers import (Input,
                                      Dense,
                                      Embedding,
                                      Flatten,
                                      Concatenate,
-                                     concatenate,
                                      BatchNormalization)
 
+from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import SGD, Adagrad, Adam, RMSprop
 
 
 class Deep_Wide:
 
     def __init__(self,
-                 model_type="NeuMF",
-                 learning_rate=0.1,
-                 layers=[20, 10],
-                 reg_layers=[0, 0],
-                 epochs=1,
-                 optimizer='adam',
-                 loss='binary_crossentropy',
-                 batch_size=32,
-                 verbose=1):
+                 model_type="deep",
+                 layers=[512, 256, 128],
+                 reg_layers=[0, 0, 0],
+                 category_columns_count=None,
+                 continous_nums=0,
+                 cross_nums=0
+                 ):
         """
-        init parameters of the model
+        init model
         :param n_users: numbers of user in the dataset
         :param n_items:
         :param model_type:
@@ -37,21 +34,20 @@ class Deep_Wide:
         """
         self.model_type = model_type
         self.layers = layers
-        self.learning_rate = learning_rate
-        self.epochs = epochs
-        self.verbose = verbose
-        self.batch_size = batch_size
-        self.optimizer = optimizer
-        self.loss = loss
         self.reg_layers = reg_layers
         # define input columns
         self.categ_input = None
         self.conti_input = None
         self.cross_input = None
-        # record train process
-        self.history = []
+        # column information
+        self.category_columns_count = category_columns_count
+        self.continous_nums = continous_nums
+        self.cross_nums = cross_nums
 
-        self.model = self.get_model()
+        # record train process
+        self.callbacks = None
+
+        self.model = self.get_model(model_type)
 
     def get_model(self, model_type):
         if model_type == 'deep':
@@ -61,13 +57,13 @@ class Deep_Wide:
         elif model_type == 'deep_wide':
             return self.deep_wide()
 
-    def deep_model(self, category_columns_count, continue_columns):
+    def deep_model(self):
         categ_inputs = []
         categ_embeds = []
 
-        for i in category_columns_count:
+        for i in self.category_columns_count:
             inputs = Input(shape=(1,), dtype='int32', name=i)
-            input_dim = category_columns_count[i]
+            input_dim = self.category_columns_count[i]
             output_dim = int(np.ceil(input_dim ** 0.25))
             embedding_layer = Embedding(input_dim=input_dim,
                                         output_dim=output_dim,
@@ -79,8 +75,8 @@ class Deep_Wide:
             categ_embeds.append(fatten_layer)
 
         # input numerical data
-        conti_input = Input(shape=(len(continue_columns), ), name='numerical_input')
-        conti_dense = Dense(256, activation='relu', use_bias=False, name='numerical_layer')(conti_input)
+        conti_input = Input(shape=(self.continous_nums, ), name='continous_input')
+        conti_dense = Dense(256, activation='relu', use_bias=False, name='continous_layer')(conti_input)
 
         # save deep model input layer
         self.categ_input = categ_inputs
@@ -107,20 +103,20 @@ class Deep_Wide:
 
         return model
 
-    def wide_model(self, cross_nums):
+    def wide_model(self):
         # linear model
-        wide_input = Input(shape=(cross_nums,), name='wide_input')
-        wide_output = Dense(cross_nums, activation='sigmoid', name='wide_output')(wide_input)
+        wide_input = Input(shape=(self.cross_nums,), name='wide_input')
+        wide_output = Dense(1, activation='sigmoid', name='wide_output')(wide_input)
         model = Model(inputs=wide_input, outputs=wide_output)
         self.cross_input = wide_input
 
         return model
 
-    def deep_wide(self, category_columns_count, continue_columns, cross_nums):
+    def deep_wide(self):
 
         # create deep and wide model
-        wide_model = self.wide_model(cross_nums)
-        deep_model = self.deep_model(category_columns_count, continue_columns)
+        wide_model = self.wide_model()
+        deep_model = self.deep_model()
 
         # concat deep and wide input
         cross_input = wide_model.get_layer(name='wide_input').output
@@ -134,47 +130,57 @@ class Deep_Wide:
         concat_output = Concatenate(name='concat_output')([wide_output, deep_output])
 
         # final prediction layer
-        prediction = Dense(1, kernel_initializer='lecun_uniform', name='wd_prediction')(concat_output)
+        prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name='wd_prediction')(concat_output)
 
         # build deep and wide model
         model = Model(inputs=concat_input, outputs=prediction)
 
         return model
 
-    def get_input_data(self, data, numeric_columns, category_columns):
-        return data
-
     def train(self,
               x_train,
               y_train,
-              optimizer='adam',
-              loss='binary_crossentropy',
-              metric='accuracy',
-              learning_rate=0.001,
-              epoch=1,
-              batch_size=32,
-              verbose=1,
-              validation_split=0.1):
+              opt='adam',
+              loss_='binary_crossentropy',
+              metric_='accuracy',
+              lr=0.001,
+              n_epoch=1,
+              n_batch_size=32,
+              n_verbose=1,
+              validation_ratio=0.1,
+              pretrain=False,
+              wide_dir='',
+              deep_dir=''):
 
-        if optimizer.lower() == 'adagrad':
-            op = Adagrad(learning_rate=learning_rate)
-        elif self.optimizer.lower() == 'adam':
-            optimizer = Adam(learning_rate=learning_rate)
-        elif self.optimizer.lower() == 'rmsprop':
-            op = RMSprop(learning_rate)
+        if opt.lower() == 'adagrad':
+            op = Adagrad(learning_rate=lr)
+        elif opt.lower() == 'adam':
+            op = Adam(learning_rate=lr)
+        elif opt.lower() == 'rmsprop':
+            op = RMSprop(lr)
         else:
-            op = SGD(learning_rate)
+            op = SGD(lr)
 
-        self.model.compile(optimizer=op, loss=loss, metric=metric)
-        for i in range(epoch):
-            history = self.model.fit(x_train,
-                                     y_train,
-                                     epochs=1,
-                                     batch_size=batch_size,
-                                     validation_split=validation_split,
-                                     verbose=verbose)
+        if pretrain:
+            self.load_pretrain_model(wide_dir, deep_dir)
+        print(metric_ == 'accuracy', metric_)
+        self.model.compile(optimizer=op, loss=loss_, metrics=[metric_])
 
-            self.history.append(history)
+        print('result', self.model.summary())
+
+        early_stop = EarlyStopping(monitor='val_loss', patience=3)
+
+        self.callbacks = self.model.fit(x_train,
+                                        y_train,
+                                        epochs=n_epoch,
+                                        batch_size=n_batch_size,
+                                        verbose=n_verbose,
+                                        validation_split=validation_ratio,
+                                        callbacks=[early_stop])
+
+    def evaluate_model(self, data, label):
+        loss, acc = self.model.evaluate(data, label)
+        print('test loss: {}, test acc: {}'.format(loss, acc))
 
     def predict(self, x_test):
         # convert
@@ -205,6 +211,28 @@ class Deep_Wide:
         return os.path.realpath(model_path)
 
     def plot_picture(self):
-        return 1
+        # visualize training results
+        # 绘制训练 & 验证的准确率值
+        plt.figure(figsize=(10, 5))
+        plt.subplot(1, 2, 1)
+        plt.plot(self.callbacks.history['acc'])
+        plt.plot(self.callbacks.history['val_acc'])
+        plt.title(self.model_type + ' accuracy')
+        plt.ylabel('Accuracy')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Test'], loc='lower right')
+
+        # 绘制训练 & 验证的损失值
+        plt.subplot(1, 2, 2)
+        plt.plot(self.callbacks.history['loss'])
+        plt.plot(self.callbacks.history['val_loss'])
+        plt.title(self.model_type + ' loss')
+        plt.ylabel('Loss')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Test'], loc='lower right')
+        plt.show()
+
+
+
 
 
