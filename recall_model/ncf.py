@@ -303,7 +303,7 @@ class NCF:
         save the model
         :param directory:
         :param dir: the directory where to put the model
-        :return:
+        :return: the absolute path
         """
 
         # create the dir if not exist
@@ -316,8 +316,8 @@ class NCF:
         if os.path.exists(model_path):
             os.remove(model_path)
 
+        # save the network graph and weights
         self.model.save(model_path)
-        print('save success')
 
     def get_train_instance(self, data, num_negatives):
         """
