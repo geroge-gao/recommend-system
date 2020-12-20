@@ -3,6 +3,7 @@ import numpy as np
 from rank_model.deep_wide import Deep_Wide
 from sklearn.preprocessing import LabelEncoder
 import tensorflow as tf
+from tensorflow.keras.utils import plot_model
 from utils.dataset_utils import load_adult_data, category_cross_feature
 
 
@@ -107,7 +108,6 @@ epochs = 1
 optimizer = 'adam'
 loss = 'binary_crossentropy'
 metric = 'accuracy'
-lr = 0.001
 epochs = 5
 batch_size = 32
 verbose = 1
@@ -140,29 +140,8 @@ model_path = deep_wide.save_model(model_dir)
 print(model_path)
 
 # visualize the training logs
-deep_wide.plot_picture()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# define wide and deep model
-
+# deep_wide.plot_picture()
+plot_model(deep_wide.model, './deep_wide.png')
 
 
 
