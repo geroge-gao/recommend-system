@@ -1,47 +1,63 @@
-from tensorflow.keras.layers import Layer, Dense, Dropout, Input
-from tensorflow.keras import Model, activations
+import pandas as pd
+from sklearn.metrics import log_loss, roc_auc_score
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
-from tensorflow import keras as K
+from deepctr.models import DeepFM
+from deepctr.feature_column import SparseFeat, DenseFeat, get_feature_names
+from tensorflow.keras.utils import  plot_model
+
+data = pd.read_csv('../data/crito/dac_sample.txt', sep='\t', header=None)
+
+print(data.info())
+
+sparse_features = ['C' + str(i) for i in range(1, 27)]
+dense_features = ['I' + str(i) for i in range(1, 14)]
 
 
-class FM(Layer):
-    def __init__(self, output_dim, latent=10,  activation='relu', **kwargs):
-        self.latent = latent
-        self.output_dim = output_dim
-        self.activation = activations.get(activation)
-        super(FM, self).__init__(**kwargs)
+columns = ['label'] + dense_features + sparse_features
+data.columns = columns
 
-    def build(self, input_shape):
-        # 创建改神经层的变量值,确认输入数据的shape
-        self.b = self.add_weight(name='W0',
-                                 shape=(self.output_dim,),
-                                 trainable=True,
-                                 initializer='zeros')
-        self.w = self.add_weight(name='W',
-                                 shape=(input_shape[1], self.output_dim),
-                                 trainable=True,
-                                 initializer='random_uniform')
-        self.v = self.add_weight(name='V',
-                                 shape=(input_shape[1], self.latent),
-                                 trainable=True,
-                                 initializer='random_uniform')
-        super(FM, self).build(input_shape)
+data[sparse_features] = data[sparse_features].fillna('-1', )
+data[dense_features] = data[dense_features].fillna(0, )
+target = ['label']
 
-    def call(self, inputs, **kwargs):
-        # This is where the layer's logic lives.
-        x = inputs
-        x_square = K.square(x)
-        xv = K.square(K.dot(x, self.v))
-        xw = K.dot(x, self.w)
+# 1.Label Encoding for sparse features,and do simple Transformation for dense features
+for feat in sparse_features:
+    lbe = LabelEncoder()
+    data[feat] = lbe.fit_transform(data[feat])
+mms = MinMaxScaler(feature_range=(0, 1))
+data[dense_features] = mms.fit_transform(data[dense_features])
 
-        p = 0.5*K.sum(xv-K.dot(x_square, K.square(self.v)), 1)
-        rp = K.repeat_elements(K.reshape(p, (-1, 1)), self.output_dim, axis=-1)
-        f = xw + rp + self.b
-        output = K.reshape(f, (-1, self.output_dim))
+# 2.count #unique features for each sparse field,and record dense feature field name
 
-        return output
+fixlen_feature_columns = [SparseFeat(feat, vocabulary_size=data[feat].nunique(), embedding_dim=4 )
+                       for i,feat in enumerate(sparse_features)] + [DenseFeat(feat, 1,)
+                      for feat in dense_features]
 
-    def compute_output_shape(self, input_shape):
-        # 计算输出的数据类型
-        assert input_shape and len(input_shape) == 2
-        return input_shape[0], self.output_dim
+dnn_feature_columns = fixlen_feature_columns
+linear_feature_columns = fixlen_feature_columns
+
+feature_names = get_feature_names(linear_feature_columns + dnn_feature_columns)
+
+# 3.generate input data for model
+
+train, test = train_test_split(data, test_size=0.2, random_state=2018)
+train_model_input = {name: train[name] for name in feature_names}
+test_model_input = {name: test[name] for name in feature_names}
+
+# 4.Define Model,train,predict and evaluate
+model = DeepFM(linear_feature_columns, dnn_feature_columns, task='binary')
+model.compile("adam", "binary_crossentropy",
+              metrics=['binary_crossentropy'], )
+
+history = model.fit(train_model_input, train[target].values,
+                    batch_size=256, epochs=10, verbose=2, validation_split=0.2, )
+pred_ans = model.predict(test_model_input, batch_size=256)
+print("test LogLoss", round(log_loss(test[target].values, pred_ans), 4))
+print("test AUC", round(roc_auc_score(test[target].values, pred_ans), 4))
+
+print(model.summary())
+
+
+

@@ -25,7 +25,7 @@ class Deep_Wide:
                  cross_nums=0
                  ):
         """
-        init model
+        wide and deep model
         :param n_users: numbers of user in the dataset
         :param n_items:
         :param model_type:
@@ -70,6 +70,7 @@ class Deep_Wide:
                                         input_length=1,
                                         embeddings_regularizer=l2(0),
                                         name=i+"_embedding")(inputs)
+
             fatten_layer = Flatten()(embedding_layer)
             categ_inputs.append(inputs)
             categ_embeds.append(fatten_layer)
