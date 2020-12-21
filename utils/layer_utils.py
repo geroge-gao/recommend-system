@@ -1,6 +1,7 @@
 from tensorflow.keras.layers import Layer
 from tensorflow.keras import backend as K
 import tensorflow as tf
+from tensorflow.keras.regularizers import l2
 
 
 class FM(Layer):
@@ -40,5 +41,25 @@ class FM(Layer):
         # Computes the output shape of the layer.
         return (None, 1)
 
- 
+
+class Reduce(Layer):
+    """
+    Linear layer for deepFM
+    """
+    def __init__(self, axis=-1,  **kwargs):
+        self.axis = axis
+        super(Reduce, **kwargs)
+
+    def build(self, input_shape):
+
+        super(Reduce, self).build(input_shape)
+
+    def call(self, inputs, **kwargs):
+        sparse_input = tf.reduce_sum(inputs, axis=self.axis, keepdims=False)
+        return sparse_input
+
+    def compute_output_shape(self, input_shape):
+        return (None, 1)
+
+
 

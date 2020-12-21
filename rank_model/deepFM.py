@@ -1,11 +1,11 @@
-from utils.layer_utils import FM
+from utils.layer_utils import FM, Reduce
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Input, Embedding, Dense, Concatenate, Add, Flatten
+from tensorflow.keras.layers import Input, Embedding, Dense, Concatenate, Add, Flatten, RepeatVector
 from tensorflow.keras.optimizers import SGD, RMSprop, Adam, Adagrad
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.regularizers import l2
 import tensorflow as tf
-
+from tensorflow.keras.initializers import GlorotNormal, RandomNormal
 
 class deepFM():
 
@@ -19,7 +19,8 @@ class deepFM():
                  model_type='deepfm',
                  layers=[512, 256, 128],
                  reg_layers=[0, 0, 0],
-                 embed_output_dim=4,):
+                 embed_output_dim=4,
+                 seed=2020):
         """
         :param dense_columns: a dict, (column_name, column_unique_count)
         :param sparse_columns: a list of sparse column
@@ -34,63 +35,76 @@ class deepFM():
         self.output_dim = embed_output_dim
         self.dense_columns = dense_columns
         self.sparse_columns = sparse_columns
+        self.callbacks = None
+        self.seed = seed
         self.model = self.deepfm()
 
 
     def deepfm(self):
 
-        # input numeric data
-        dense_input = Input(len(self.dense_columns), name=+'numeric_input', dtype='int32')
+        # define dense layer
+        dense_input = Input(len(self.dense_columns), name='dense_input', dtype='float32')
 
-        # input category data
+        # define embedding layer
         sparse_inputs = []
+        fm_embeds = []
+        linear_embeds = []
         for k, v in self.sparse_columns:
-            sparse_input = Input(1, name=k, dtype='float32')
-            emb_input_dim = v
-            emb_output_dim = self.output_dim
-            embedding = Embedding(input_dim=emb_input_dim,
-                                  output_dim=emb_output_dim,
-                                  input_length=1,
-                                  embeddings_regularizer=l2(0),
-                                  name=k + "_embedding"
-                                  )(sparse_input)
+            sparse_input = Input(1, name=k, dtype='int32')
+            sparse_inputs.append(sparse_input)
+            input_dim = v,
+            output_dim = self.output_dim
+            fm_embed = Embedding(input_dim=input_dim,
+                                 output_dim=output_dim,
+                                 embeddings_initializer=tf.keras.initializers.RandomNormal,
+                                 embeddings_regularizer=l2(0),
+                                 )(sparse_input)
 
-            sparse_inputs.append(embedding)
-
-        # linear input
-        dense_linear = Dense(1)(dense_input)
-        sparse_linear = Concatenate(axis=-1)(sparse_inputs)
-        sparse_linear = tf.reduce_sum(sparse_linear, axis=1)
-
-
-
-
-        dense_input
-        linear_input = Concatenate(axis=-1)([dense_input] + sparse_inputs)
-        fm_input = Concatenate(axis=-1)(sparse_inputs)
-        dnn_input = linear_input
+            linear_embed = Embedding(input_dim=input_dim,
+                                     output_dim=1,
+                                     embeddings_initializer=tf.keras.initializers.RandomNormal,
+                                     embeddings_regularizer=l2(0),
+                                     )(sparse_input) # [None, input_dim ,1]
+            # get embedding layer
+            linear_embeds.append(linear_embed)
+            fm_embeds.append(fm_embed)
 
         # linear part
-        linear_output = Dense(1, activation='linear', use_bias=True, name='linear')(linear_input)
+        linear_dense = Dense(1)(dense_input)
+        linear_concat = Concatenate(axis=-1)(linear_embeds)
+        linear_embed = Reduce(axis=1)(linear_concat)
+        linear_vector = Add([linear_dense, linear_embed])
 
-        # fm part
-        fm_output = FM()(fm_input)
+        # FM part
+        fm_dense = RepeatVector(1)(Dense(self.output_dim)(dense_input))  # [batch_size, 1, output_dim]
+        fm_input = Concatenate(axis=-1)([fm_dense] + fm_embeds)
+        fm_vector = FM()(fm_input)  # [batch_size, 1]
 
-        # dnn part
-        dense_layer = Flatten()(dnn_input)
+        # DNN part
+        dnn_vector = Flatten()(fm_input)
 
-        for i in range(self.layers):
-            dense_layer = Dense(self.layers[i],
-                                activation='relu',
-                                kernel_initializer='random_uniform',
-                                name='mlp_{}_layer'.format(i))(dense_layer)
+        for i in range(len(self.layers)):
+            dnn_vector = Dense(self.layers[i],
+                               kernel_initializer=GlorotNormal(seed=self.seed),
+                               kernel_regularizer=l2(self.reg_layers[0]),
+                               use_bias=True,
+                               activation='relu',
+                               name='dnn_layer_{}'.format(i))(dnn_vector)
 
+        # define deepfm model input
+        final_input = Concatenate(axis=-1)([linear_vector, fm_vector, dnn_vector])
 
+        # define final prediction layer
+        prediction = Dense(1, activation='sigmoid')(final_input)
 
-        # prediction layer
+        # build deepFM model
+        model = Model(inputs=[dense_input] + sparse_inputs, outputs=prediction)
 
-        model = Model()
         return model
+
+
+
+
 
     def train(self,
               x_train,
@@ -132,4 +146,6 @@ class deepFM():
                                         verbose=n_verbose,
                                         validation_split=validation_ratio,
                                         callbacks=[early_stop])
+
+
 
