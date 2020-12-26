@@ -16,3 +16,10 @@ demo.ipynb
 *.ipynb
 *.ipynb
 *.xml
+*.h5
+*.xml
+*.data
+*.xml
+*.gz
+*.txt
+*.tar
