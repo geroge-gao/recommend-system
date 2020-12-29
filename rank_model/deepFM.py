@@ -46,10 +46,6 @@ class deepFM():
 
         # define dense layer
         sparse_inputs = []
-        dense_inputs = []
-        # for c in self.dense_columns:
-        #     dense_input = Input(1, name=c+'_input', dtype='float32')
-        #     dense_inputs.append(dense_input)
 
         dense_input = Input(len(self.dense_columns), name='dense_input', dtype='float32')
 

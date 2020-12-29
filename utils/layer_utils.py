@@ -74,9 +74,8 @@ class CrossLayer(Layer):
     """
     Cross Layer for deep cross network
     """
-    def __init__(self, layer_num, layer_reg, **kwargs):
+    def __init__(self, layer_num, **kwargs):
         self.layer_num = layer_num
-        self.layer_reg = layer_reg
         super(CrossLayer, self).__init__(**kwargs)
 
     def build(self, input_shape):
@@ -100,19 +99,17 @@ class CrossLayer(Layer):
             raise ValueError(
                 "Unexpected inputs dimensions %d, expect to be 2 dimensions" % (K.ndim(inputs)))
 
-        # add a dim
         x0 = K.reshape(inputs, (-1, inputs.shape[1], 1))
-        xl = K.transpose(x0, [0, 2, 1])  # [batch_size, 1, embedding_dim]
-
+        xl = x0
         for i in range(self.layer_num):
-            cross_out = 1
+            xl_t = K.transpose(xl)
+            xl = tf.tensordot(x0 * xl_t, self.W[i], axes=1) + xl + self.b[i]
+        xl = K.sum(xl, axis=-1, keepdims=False)
 
-
-
-        return 1
+        return xl
 
     def compute_output_shape(self, input_shape):
-        return input_shape
+        return (None, input_shape[-1])
 
 
 
