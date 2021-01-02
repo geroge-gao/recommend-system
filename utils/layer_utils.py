@@ -99,17 +99,18 @@ class CrossLayer(Layer):
             raise ValueError(
                 "Unexpected inputs dimensions %d, expect to be 2 dimensions" % (K.ndim(inputs)))
 
-        x0 = K.reshape(inputs, (-1, inputs.shape[1], 1))
+        x0 = K.expand_dims(inputs, axis=2)
         xl = x0
         for i in range(self.layer_num):
-            xl_t = K.transpose(xl)
-            xl = tf.tensordot(x0 * xl_t, self.W[i], axes=1) + xl + self.b[i]
-        xl = K.sum(xl, axis=-1, keepdims=False)
+            xlt_w = tf.tensordot(xl, self.W[i], axes=(1, 0))
+            xl = x0 * xlt_w + self.b[i] + xl
+
+        xl = tf.reduce_sum(xl, axis=-1, keepdims=False)
 
         return xl
 
     def compute_output_shape(self, input_shape):
-        return (None, input_shape[-1])
+        return input_shape
 
 
 
