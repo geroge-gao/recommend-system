@@ -16,3 +16,11 @@ demo.ipynb
 *.ipynb
 *.ipynb
 *.xml
+*.h5
+*.xml
+*.data
+*.xml
+*.gz
+*.txt
+*.tar
+data/higgs-boson/HiggsBosonCompetition_AMSMetric_rev1.py
