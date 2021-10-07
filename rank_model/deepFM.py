@@ -87,9 +87,9 @@ class deepFM():
 
         for i in range(len(self.layers)):
             dnn_vector = Dense(self.layers[i],
-                               kernel_initializer=tf.keras.initializers.RandomNormal,
+                               kernel_initializer=tf.keras.initializers.zeros,
                                kernel_regularizer=l2(self.layers_reg[i]),
-                               use_bias=True,
+                               use_bias=False,
                                activation='relu',
                                name='dnn_layer_{}'.format(i))(dnn_vector)
 

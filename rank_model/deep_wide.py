@@ -127,7 +127,6 @@ class Deep_Wide:
         deep_output = deep_model.get_layer(name='deep_layer_{}'.format(len(self.layers)-1)).output
         wide_output = cross_input
 
-        a = [deep_output, wide_output]
         concat_output = Concatenate(name='concat_output')([wide_output, deep_output])
 
         # final prediction layer
@@ -166,8 +165,6 @@ class Deep_Wide:
             self.load_pretrain_model(wide_dir, deep_dir)
         print(metric_ == 'accuracy', metric_)
         self.model.compile(optimizer=op, loss=loss_, metrics=[metric_])
-
-        print('result', self.model.summary())
 
         early_stop = EarlyStopping(monitor='val_loss', patience=3)
 
