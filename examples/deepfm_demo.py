@@ -1,9 +1,12 @@
+import sys
+sys.path.append("..")
 import pandas as pd
 from rank_model.deepFM import deepFM
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 import numpy as np
 from sklearn.metrics import roc_auc_score, log_loss
 from sklearn.model_selection import train_test_split
+
 
 data = pd.read_csv('../data/crito/dac_sample.txt', sep='\t', header=None)
 sparse_features = ['C' + str(i) for i in range(1, 27)]
@@ -75,7 +78,7 @@ model.train(x_train=train_input,
             n_batch_size=batch_size)
 
 # test
-
+# test 123
 
 
 
