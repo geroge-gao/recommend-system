@@ -1,6 +1,10 @@
 # -*- coding:utf-8 -*-
 """
 Describe: some method to parse tfrecord file
+
+Author: gerogegao
+
+Date: 2022-08-22
 """
 
 import pandas as pd

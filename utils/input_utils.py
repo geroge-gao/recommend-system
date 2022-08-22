@@ -1,4 +1,12 @@
 
+# -*- coding:utf-8 -*-
+"""
+Describe: input layer function for tf 1.x
+
+Author: gerogegao
+
+Date: 2022-08-22
+"""
 
 import sys
 sys.path.append("./")
